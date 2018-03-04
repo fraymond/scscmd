@@ -82,6 +82,21 @@ func main() {
 
 	fmt.Println("---- buff.Bytes ----")
 	fmt.Printf("0x%x\n", buff.Bytes())
+
+	var testSigData = make([]byte, 32)
+	fmt.Println("---- test data ----")
+	fmt.Println(testSigData)
+
+	// sign hash
+	signature, err := ks.SignHashWithPassphrase(account, password, testSigData)
+	if err != nil {
+		fmt.Println("---- err ----")
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("---- signed hash ----")
+	fmt.Println(signature)
 }
 
 // getPassPhrase retrieves the password associated with an account, either fetched

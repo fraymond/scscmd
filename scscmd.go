@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
@@ -60,15 +59,18 @@ func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ec
 	return tx
 }
 
-func setupTxPool() (*core.TxPool, *ecdsa.PrivateKey) {
+func setupTxPool(chainID *big.Int) (*core.TxPool, *testBlockChain) {
 	diskdb, _ := ethdb.NewMemDatabase()
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
-	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
+	blockchain := &testBlockChain{statedb, 200000000000000, new(event.Feed)}
 
-	key, _ := crypto.GenerateKey()
+	testChainConfig := params.TestChainConfig
+	testChainConfig.ChainId = chainID
+
+	//key, _ := crypto.GenerateKey()
 	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain)
 
-	return pool, key
+	return pool, blockchain
 }
 
 /* USAGE:
@@ -118,7 +120,7 @@ func main() {
 	chainID := big.NewInt(3)
 	nonce := uint64(7)
 	gasLimit := uint64(100000)
-	gasPrice := big.NewInt(20000000000) // 20 gwei
+	gasPrice := big.NewInt(20) // 20 gwei
 
 	// create a new transaction
 	tx := types.NewTransaction(nonce, recipientAddr, amount, gasLimit, gasPrice, nil)
@@ -140,13 +142,27 @@ func main() {
 	fmt.Println(testSigData)
 
 	// add to pool
-	pool, _ := setupTxPool()
+	pool, blockchain := setupTxPool(chainID)
 	defer pool.Stop()
+
+	blockchain.statedb.AddBalance(common.HexToAddress(fromAddr), big.NewInt(500000000))
+
+	fmt.Print("Gas Price: ")
+	fmt.Println(tx.GasPrice())
+	fmt.Print("Gas: ")
+	fmt.Println(tx.Gas())
+	fmt.Print("Cost: ")
+	fmt.Println(tx.Cost())
+
+	fmt.Println(fromAddr)
+	fmt.Println(blockchain.statedb.GetBalance(common.HexToAddress(fromAddr)))
 
 	if err := pool.AddLocal(signedTx); err != nil {
 		fmt.Println("---- error ----")
 		fmt.Println(err)
 	}
+
+	fmt.Println(pool.Content())
 
 	if err != nil {
 		fmt.Println("---- err ----")

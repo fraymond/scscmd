@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"os"
@@ -10,8 +11,65 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/console"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/params"
 )
+
+var testTxPoolConfig core.TxPoolConfig
+
+type testBlockChain struct {
+	statedb       *state.StateDB
+	gasLimit      uint64
+	chainHeadFeed *event.Feed
+}
+
+func init() {
+	testTxPoolConfig = core.DefaultTxPoolConfig
+	testTxPoolConfig.Journal = ""
+}
+
+func (bc *testBlockChain) CurrentBlock() *types.Block {
+	return types.NewBlock(&types.Header{
+		GasLimit: bc.gasLimit,
+	}, nil, nil, nil)
+}
+
+func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
+	return bc.CurrentBlock()
+}
+
+func (bc *testBlockChain) StateAt(common.Hash) (*state.StateDB, error) {
+	return bc.statedb, nil
+}
+
+func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+	return bc.chainHeadFeed.Subscribe(ch)
+}
+
+func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {
+	return pricedTransaction(nonce, gaslimit, big.NewInt(1), key)
+}
+
+func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
+	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(100), gaslimit, gasprice, nil), types.HomesteadSigner{}, key)
+	return tx
+}
+
+func setupTxPool() (*core.TxPool, *ecdsa.PrivateKey) {
+	diskdb, _ := ethdb.NewMemDatabase()
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(diskdb))
+	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
+
+	key, _ := crypto.GenerateKey()
+	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain)
+
+	return pool, key
+}
 
 /* USAGE:
  * ./scscmd [keystore dir] [from account] [to account] [eth amount] [[passphrase]]
@@ -68,12 +126,6 @@ func main() {
 	// sign transaction
 	signedTx, err := ks.SignTxWithPassphrase(account, password, tx, chainID)
 
-	if err != nil {
-		fmt.Println("---- err ----")
-		fmt.Println(err)
-		return
-	}
-
 	fmt.Println("---- signed transactions ----")
 	fmt.Println(signedTx)
 
@@ -87,6 +139,21 @@ func main() {
 	fmt.Println("---- test data ----")
 	fmt.Println(testSigData)
 
+	// add to pool
+	pool, _ := setupTxPool()
+	defer pool.Stop()
+
+	if err := pool.AddLocal(signedTx); err != nil {
+		fmt.Println("---- error ----")
+		fmt.Println(err)
+	}
+
+	if err != nil {
+		fmt.Println("---- err ----")
+		fmt.Println(err)
+		return
+	}
+
 	// sign hash
 	signature, err := ks.SignHashWithPassphrase(account, password, testSigData)
 	if err != nil {
@@ -97,6 +164,7 @@ func main() {
 
 	fmt.Println("---- signed hash ----")
 	fmt.Println(signature)
+
 }
 
 // getPassPhrase retrieves the password associated with an account, either fetched

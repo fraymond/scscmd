@@ -76,6 +76,28 @@ var mint = mintContract.new({ from: eth.accounts[0], data: "0x" + testOutput.con
   }
 );
 ```
+Transacting contract
+```
+contract.mint(eth.accounts[1], 100,{
+            from:web3.eth.accounts[0],
+            gas:40000000},function (error, result){ //get callback from function which is your transaction key
+                if(!error){
+                    console.log(result);
+                } else{
+                    console.log(error);
+                }
+        });
+
+contract.send.sendTransaction(eth.accounts, 10,{
+            from:web3.eth.accounts[0],
+            gas:10000000},function (error, result){ //get callback from function which is your transaction key
+                if(!error){
+                    console.log(result);
+                } else{
+                    console.log(error);
+                }
+        });
+```
 Start mining to mine the contract
 ```
 miner.start()

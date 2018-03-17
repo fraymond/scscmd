@@ -37,7 +37,7 @@ go get -u github.com/ethereum/go-ethereum
 go build scscmd.go
 ./scscmd "/Users/[user]/Library/Ethereum/keystore" "94329ffd9c8c6651ed0250569700e823ad6ebcbd" "ca4a1cc346f6ed99a7a0335617a1c647244c767a" 500000000000000000000 "password"
 ```
-## Prepare Smart Contract Coin.sol
+## Prepare Smart Contract Coin.sol and execute it in Web3.
 
 Review JSON format of the contract
 ```bash
@@ -76,27 +76,32 @@ var mint = mintContract.new({ from: eth.accounts[0], data: "0x" + testOutput.con
   }
 );
 ```
+Start mining to mine the contract
+```
+miner.start()
+miner.stop()
+```
 Transacting contract
 ```
-contract.mint(eth.accounts[1], 100,{
-            from:web3.eth.accounts[0],
-            gas:40000000},function (error, result){ //get callback from function which is your transaction key
-                if(!error){
-                    console.log(result);
-                } else{
-                    console.log(error);
-                }
-        });
+mint.mint.sendTransaction(eth.accounts[1], 100,{
+    from:web3.eth.accounts[0],
+    gas:10000000},function (error, result){ 
+        if(!error){
+            console.log(result);
+        } else{
+            console.log(error);
+        }
+});
 
-contract.send.sendTransaction(eth.accounts, 10,{
-            from:web3.eth.accounts[0],
-            gas:10000000},function (error, result){ //get callback from function which is your transaction key
-                if(!error){
-                    console.log(result);
-                } else{
-                    console.log(error);
-                }
-        });
+mint.send.sendTransaction(eth.accounts, 10,{
+    from:web3.eth.accounts[0],
+    gas:10000000},function (error, result){ 
+        if(!error){
+            console.log(result);
+        } else{
+            console.log(error);
+        }
+});
 ```
 Start mining to mine the contract
 ```
